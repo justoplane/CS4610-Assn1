@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import { socket } from './socket'
+import * as CryptoJS from 'crypto-js';
 
 function App() {
-  const [count, setCount] = useState(0)
   const [connected, setConnected] = useState(socket.connected);
+  const [messages, setMessages] = useState<string[]>([]);
+  const [input, setInput] = useState('');
+  const [password, setPassword] = useState('');
+  const [decryptionPassword, setDecryptionPassword] = useState('');
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState('');
+
   useEffect(() => {
     socket.connect();
 
@@ -14,40 +19,97 @@ function App() {
       setConnected(true);
     });
 
-    socket.on('count', () => {
-      setCount((c) => c + 1);
+    socket.on('message', (message: string) => {
+      console.log('message received at client:', message);
+      setMessages((prevMessages) => [...prevMessages, message]);
     });
 
     return () => {
       socket.disconnect();
       socket.off('connect');
       socket.off('count');
+      socket.off('message');
     }
   }, []);
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && password.trim()) {
+      const encrypted = CryptoJS.AES.encrypt(input, password).toString();
+      socket.emit('message', encrypted);
+      setInput('');
+      setPassword('');
+    }
+  };
+
+  const handleDecryption = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (decryptionPassword.trim()) {
+      const decrypted = CryptoJS.AES.decrypt(selectedMessage, decryptionPassword).toString(CryptoJS.enc.Utf8);
+      if (decrypted.trim()){
+      setSelectedMessage(decrypted);
+      } else {
+        setSelectedMessage('Invalid password');
+        
+      }
+      setDecryptionPassword('');
+    }
+  };
+
+  const togglePopup = (message?: string) => {
+    if (message) {
+      setSelectedMessage(message);
+    }
+    setShowPopup(!showPopup);
+  };
+
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="App">
+      <div className="messages">
+        {messages.map((message, index) => (
+          <div 
+            onClick={() => togglePopup(message)}
+            key={index}
+            >
+              {message}
+          </div>
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => connected && socket.emit('count')}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message"
+        />
+        <input
+         type="text"
+         value={password}
+         onChange={(e) => setPassword(e.target.value)}
+         placeholder="Type a password"
+         />
+        <button type="submit">Send</button>
+      </form>
+      {showPopup && (
+        <div className="popup">
+          <div className="popup-inner">
+            <h2>Decrypt Message </h2>
+            <p>{selectedMessage}</p>
+            <form onSubmit={handleDecryption}>
+              <input              
+                className="popup-inner-input"
+                type="text"
+                value={decryptionPassword}
+                onChange={(e) => setDecryptionPassword(e.target.value)}
+                placeholder="Type a password to decrypt"
+              />
+              <button type="submit">Decrypt</button>
+            </form>
+            <button onClick={() => togglePopup()}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

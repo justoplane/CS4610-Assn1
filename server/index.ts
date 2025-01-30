@@ -59,10 +59,12 @@ app.get('/', (req, res) => {
 
 io.on('connection', (socket) => {
   console.log('a user connected');
-  socket.on('count', () => {
-    console.log('count event received');
-    io.emit('count');
+
+  socket.on('message', (message) => {
+    console.log('message received:', message);
+    io.emit('message', message);
   });
+
   socket.on('disconnect', () => {
     console.log('user disconnected');
   });
