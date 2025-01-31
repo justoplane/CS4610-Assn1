@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import './App.css'
-import { socket } from './socket'
-import * as CryptoJS from 'crypto-js';
+import { useEffect, useState } from 'react';
+import './App.css';
+import { socket } from './socket';
+import CryptoJS from 'crypto-js';
 
 function App() {
   const [connected, setConnected] = useState(socket.connected);
@@ -11,6 +11,7 @@ function App() {
   const [decryptionPassword, setDecryptionPassword] = useState('');
   const [showPopup, setShowPopup] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     socket.connect();
@@ -27,9 +28,8 @@ function App() {
     return () => {
       socket.disconnect();
       socket.off('connect');
-      socket.off('count');
       socket.off('message');
-    }
+    };
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,10 +47,10 @@ function App() {
     if (decryptionPassword.trim()) {
       const decrypted = CryptoJS.AES.decrypt(selectedMessage, decryptionPassword).toString(CryptoJS.enc.Utf8);
       if (decrypted.trim()){
-      setSelectedMessage(decrypted);
+        setSelectedMessage(decrypted);
       } else {
-        setSelectedMessage('Invalid password');
-        
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000); // Hide toast after 3 seconds
       }
       setDecryptionPassword('');
     }
@@ -65,6 +65,7 @@ function App() {
 
   return (
     <div className="App">
+      <h1>Spy Chat</h1>
       <div className="messages">
         {messages.map((message, index) => (
           <div 
@@ -93,7 +94,7 @@ function App() {
       {showPopup && (
         <div className="popup">
           <div className="popup-inner">
-            <h2>Decrypt Message </h2>
+            <h2>Decrypt Message</h2>
             <p>{selectedMessage}</p>
             <form onSubmit={handleDecryption}>
               <input              
@@ -106,11 +107,16 @@ function App() {
               <button type="submit">Decrypt</button>
             </form>
             <button onClick={() => togglePopup()}>Close</button>
+          {showToast && (
+            <div className="toast">
+              Invalid password. Please try again.
+            </div>
+          )}
           </div>
         </div>
-      )}
+        )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
